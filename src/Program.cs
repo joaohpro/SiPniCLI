@@ -52,7 +52,7 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.Write("Escolha uma opção: ");
                 var option = int.Parse(Console.ReadLine());
 
-                if (option != 0)
+                if (option != 0 || option != 3)
                 {
                     Console.WriteLine("[*] Gerando token valido...");
                     tokenValido = await GerarTokenValido();
