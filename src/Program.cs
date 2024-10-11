@@ -82,8 +82,9 @@ Versao do SI-PNI para sistemas sem interface grafica
                         Console.ReadLine();
                         break;
                 }
+
+                Console.ResetColor();
             }
-            Console.ResetColor();
         }
 
         static async Task ConsultarEChecar(string nome, string codMun)
