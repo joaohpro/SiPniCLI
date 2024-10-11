@@ -19,7 +19,7 @@ namespace CheckerSipni
     class Program
     {
         static string APITOKEN = "https://servicos-cloud.saude.gov.br/pni-bff/v1/autenticacao/tokenAcesso";
-        static string APICONSULTACPF = "https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf/";
+        static string APICONSULTACPF = "https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf";
         static HttpClient Client = new HttpClient();
         static string ASCIIART = @"
  ____  _   _ ___ ____ _ _ 
@@ -37,7 +37,6 @@ Versao do SI-PNI para sistemas sem interface grafica
 
             while (true)
             {
-                Console.ResetColor();
                 Console.Clear();
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine(ASCIIART);
@@ -89,7 +88,7 @@ Versao do SI-PNI para sistemas sem interface grafica
                         var cpf = Console.ReadLine();
                         Console.WriteLine("[*] Buscando dados...");
                         var resCpf = await ConsultaCPF(tokenValido, cpf);
-                        Console.WriteLine(resCpf);
+                        Resultado(resCpf);
                         Console.WriteLine("Tecle enter para voltar...");
                         Console.ReadLine();
                         break;
@@ -140,6 +139,7 @@ Versao do SI-PNI para sistemas sem interface grafica
             }
         }
 
+        // Gerar Token para realizar a consulta sem erro de 401
         static async Task<string> GerarTokenValido()
         {
             var loginsFilePath = @".\logins.txt";
@@ -186,20 +186,19 @@ Versao do SI-PNI para sistemas sem interface grafica
         }
 
         // Faz a requisição na API com o token Bearer e retorna a classe com os dados deserializados
-        static async Task<Root> ConsultaNome(string basicToken, string nome, string codMun)
+        static async Task<Root> ConsultaNome(string bearerToken, string nome, string codMun)
         {
             try
             {
                 Client.DefaultRequestHeaders.Clear();
                 Client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71");
-                Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", basicToken);
+                Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
 
                 nome = HttpUtility.UrlEncode(nome);
-
                 var response = await Client.GetAsync($"https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao?nome={nome}&municipioNascimento={codMun}");
                 var json = await response.Content.ReadAsStringAsync();
-
                 Root root = JsonSerializer.Deserialize<Root>(json);
+
                 return root;
             }
             catch (Exception ex)
@@ -209,23 +208,24 @@ Versao do SI-PNI para sistemas sem interface grafica
             }
         }
 
-        static async Task<string> ConsultaCPF(string basicToken, string cpf)
+        static async Task<Root> ConsultaCPF(string bearerToken, string cpf)
         {
             try
             {
                 Client.DefaultRequestHeaders.Clear();
                 Client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71");
-                Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", basicToken);
+                Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
 
                 var response = await Client.GetAsync($"{APICONSULTACPF}/{cpf}");
                 var json = await response.Content.ReadAsStringAsync();
-                return json;
-                //Root root = JsonSerializer.Deserialize(json);
+                Root root = JsonSerializer.Deserialize<Root>(json);
+
+                return root;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[-] ERRO: {ex.Message}");
-                return "";
+                return null;
             }
         }
     }

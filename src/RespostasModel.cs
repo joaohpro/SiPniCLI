@@ -71,6 +71,7 @@ namespace CheckerSipni.Models
             public Endereco? endereco { get; set; }
         }
 
+        // Classe onde vai conter todos dados
         public class Root
         {
             public List<Record>? records { get; set; }
