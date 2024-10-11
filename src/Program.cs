@@ -135,32 +135,6 @@ Versao do SI-PNI para sistemas sem interface grafica
             }
         }
 
-        static Dictionary<int, string> GetMunicipios()
-        {
-            var municipios = new Dictionary<int, string>();
-
-            try
-            {
-                using (var reader = new StreamReader("../tabela_municipios.csv"))
-                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-                {
-                    var items = csv.GetRecords<TabelaMunicipios>();
-                    foreach (var item in items)
-                    {
-                        municipios.Add(item.CodMun, item.NomeMunicipio);
-                    }
-                }
-
-                return municipios;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[-] ERRO: {ex.Message}");
-            }
-
-            return null;
-        }
-
         static async Task<string> CheckLogins(List<string> credentials)
         {
             try
