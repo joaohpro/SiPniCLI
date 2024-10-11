@@ -137,7 +137,7 @@ Versao do SI-PNI para sistemas sem interface grafica
         // Gerar Token para realizar a consulta sem erro de 401
         static async Task<string> GerarTokenValido()
         {
-            var loginsFilePath = @".\logins.txt";
+            var loginsFilePath = @"logins.txt";
             var lines = File.ReadLines(loginsFilePath);
             string validToken = "";
             foreach (var credential in lines)
