@@ -11,6 +11,8 @@ using System.Text.Json;
 using System.Web;
 using System.Linq;
 using static CheckerSipni.Models.RespostasModel;
+using System.Globalization;
+using CsvHelper;
 
 namespace CheckerSipni
 {
@@ -42,11 +44,13 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.WriteLine("1. Consulta por Nome");
                 Console.WriteLine("2. Consulta por CPF");
                 Console.WriteLine("3. Consulta por Telefone");
+                Console.WriteLine("4. Ver codigos de municipios");
                 Console.WriteLine("0. Sair");
                 Console.WriteLine("======================");
                 Console.Write("Escolha uma opção: ");
                 var option = int.Parse(Console.ReadLine());
 
+                // memento júnior
                 switch (option)
                 {
                     case 1:
@@ -72,6 +76,11 @@ Versao do SI-PNI para sistemas sem interface grafica
                         break;
                     case 3:
                         Console.WriteLine("Nao implementado.");
+                        Console.ReadLine();
+                        break;
+                    case 4:
+                        Console.WriteLine("Pesquise o código do seu municipio na tabela.");
+                        Console.WriteLine("Tecle enter para voltar...");
                         Console.ReadLine();
                         break;
                     case 0:
@@ -124,6 +133,32 @@ Versao do SI-PNI para sistemas sem interface grafica
                     continue;
                 }
             }
+        }
+
+        static Dictionary<int, string> GetMunicipios()
+        {
+            var municipios = new Dictionary<int, string>();
+
+            try
+            {
+                using (var reader = new StreamReader("../tabela_municipios.csv"))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                {
+                    var items = csv.GetRecords<TabelaMunicipios>();
+                    foreach (var item in items)
+                    {
+                        municipios.Add(item.CodMun, item.NomeMunicipio);
+                    }
+                }
+
+                return municipios;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[-] ERRO: {ex.Message}");
+            }
+
+            return null;
         }
 
         static async Task<string> CheckLogins(List<string> credentials)
