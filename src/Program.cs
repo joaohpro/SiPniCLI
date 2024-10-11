@@ -46,8 +46,7 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.WriteLine("======== MENU ========");
                 Console.WriteLine("1. Consulta por Nome");
                 Console.WriteLine("2. Consulta por CPF");
-                Console.WriteLine("3. Consulta por Telefone");
-                Console.WriteLine("4. Ver codigos de municipios");
+                Console.WriteLine("3. Ver codigos de municipios");
                 Console.WriteLine("0. Sair");
                 Console.WriteLine("======================");
                 Console.Write("Escolha uma opção: ");
@@ -93,10 +92,6 @@ Versao do SI-PNI para sistemas sem interface grafica
                         Console.ReadLine();
                         break;
                     case 3:
-                        Console.WriteLine("Nao implementado.");
-                        Console.ReadLine();
-                        break;
-                    case 4:
                         Console.WriteLine("Pesquise o código do seu municipio na tabela.");
                         Console.WriteLine("Tecle enter para voltar...");
                         Console.ReadLine();
@@ -185,7 +180,10 @@ Versao do SI-PNI para sistemas sem interface grafica
             return string.Empty;
         }
 
-        // Faz a requisição na API com o token Bearer e retorna a classe com os dados deserializados
+        /*
+        * AS FUNÇÕES DE CONSULTA LOGO ABAIXO, FAZEM O SEGUINTE
+        * Requisição na API com o token Bearer e retorna a classe com os dados deserializados
+        */
         static async Task<Root> ConsultaNome(string bearerToken, string nome, string codMun)
         {
             try
