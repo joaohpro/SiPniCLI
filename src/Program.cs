@@ -54,7 +54,7 @@ Versao do SI-PNI para sistemas sem interface grafica
                         var nome = Console.ReadLine();
                         Console.WriteLine("Codigo Municipio: ");
                         var codMun = Console.ReadLine();
-                        if (nome != null && codMun != null)
+                        if (!string.IsNullOrEmpty(nome.Trim()) && !string.IsNullOrEmpty(codMun.Trim()))
                         {
                             await ConsultarEChecar(nome, codMun);
                             Console.WriteLine("Tecle enter para voltar...");
