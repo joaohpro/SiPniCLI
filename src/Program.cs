@@ -1,4 +1,4 @@
-﻿/*
+/*
  * DESENVOLVIDO POR João H.
  * Versao do SI-PNI para sistemas sem interface grafica
  * Ética sempre (:
@@ -33,7 +33,9 @@ Versao do SI-PNI para sistemas sem interface grafica
 
         static async Task Main()
         {
-            string tokenValido = "";
+            Console.Clear();
+            Console.WriteLine("[*] Gerando token valido...");
+            var tokenValido = await GerarTokenValido();
 
             while (true)
             {
@@ -52,12 +54,6 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.Write("Escolha uma opção: ");
                 var option = int.Parse(Console.ReadLine());
 
-                if (option != 0 && option != 3)
-                {
-                    Console.WriteLine("[*] Gerando token valido...");
-                    tokenValido = await GerarTokenValido();
-                }
-
                 // memento júnior
                 switch (option)
                 {
@@ -66,6 +62,10 @@ Versao do SI-PNI para sistemas sem interface grafica
                         var nome = Console.ReadLine();
                         Console.WriteLine("Codigo Municipio: ");
                         var codMun = Console.ReadLine();
+                        if (codMun.Length == 7)
+                        {
+                            codMun = codMun.Substring(0, codMun.Length - 1);
+                        }
 
                         Console.WriteLine("[*] Buscando dados...");
                         if (!string.IsNullOrEmpty(nome.Trim()) && !string.IsNullOrEmpty(codMun.Trim()))
@@ -110,7 +110,7 @@ Versao do SI-PNI para sistemas sem interface grafica
         // Exibe os dados após a consulta
         static void Resultado(Root dados)
         {
-            if (dados != null && dados.records != null)
+            if (dados != null && dados.records != null && dados.records.Count > 0)
             {
                 foreach (var dado in dados.records)
                 {
