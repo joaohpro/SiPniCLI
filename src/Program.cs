@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Web;
 using static CheckerSipni.Models.RespostasModel;
 using Lolcat;
+using Spectre.Console;
 
 namespace CheckerSipni
 {
@@ -23,11 +24,12 @@ namespace CheckerSipni
         static string APICONSULTACPF = "https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf";
         static HttpClient Client = new HttpClient();
         static string ASCIIART = @"
- ____  _   _ ___ ____ _ _ 
-|  _ \| \ | |_ _/ ___| (_)
-| |_) |  \| || | |   | | |
-|  __/| |\  || | |___| | |
-|_|   |_| \_|___\____|_|_|
+██████╗ ███╗   ██╗██╗ ██████╗██╗     ██╗
+██╔══██╗████╗  ██║██║██╔════╝██║     ██║
+██████╔╝██╔██╗ ██║██║██║     ██║     ██║
+██╔═══╝ ██║╚██╗██║██║██║     ██║     ██║
+██║     ██║ ╚████║██║╚██████╗███████╗██║
+╚═╝     ╚═╝  ╚═══╝╚═╝ ╚═════╝╚══════╝╚═╝
 By https://joaoh.netlify.app
 Versao do SI-PNI para sistemas sem interface grafica
 ";
@@ -88,9 +90,10 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Console.Clear();
                 rainbow.WriteLineWithMarkup(ASCIIART);
                 Console.WriteLine("======== MENU ========");
-                Console.WriteLine("1. Consulta por Nome");
-                Console.WriteLine("2. Consulta por CPF");
-                Console.WriteLine("0. Sair");
+                rainbow.WriteLineWithMarkup("1. Consulta por Nome");
+                rainbow.WriteLineWithMarkup("2. Consulta por CPF");
+                rainbow.WriteLineWithMarkup("3. Regenerar tokens");
+                rainbow.WriteLineWithMarkup("0. Sair");
                 Console.WriteLine("======================");
                 Console.Write("Escolha uma opção: ");
 
@@ -133,6 +136,10 @@ Versao do SI-PNI para sistemas sem interface grafica
                                 Console.WriteLine("Credencial invalida.");
                             }
                             break;
+                        case 3:
+                            rainbow.WriteLineWithMarkup("[*] Gerando tokens novos...");
+                            await GerarTokenValido();
+                            break;
                         case 0:
                             Environment.Exit(0);
                             break;
@@ -152,8 +159,10 @@ Versao do SI-PNI para sistemas sem interface grafica
 
         static async Task<List<CredentialToken>> GerarTokenValido()
         {
+            File.Delete(tokensFilePath);
             var lines = File.ReadLines(loginsFilePath);
             var credentialTokens = new List<CredentialToken>();
+            credentialTokens.Clear();
 
             foreach (var credential in lines)
             {
@@ -205,6 +214,7 @@ Versao do SI-PNI para sistemas sem interface grafica
 
         static async Task ConsultaPorNome(string tokenValido)
         {
+
             Console.Write("Nome: ");
             var nome = Console.ReadLine();
             Console.Write("Codigo Municipio: ");
@@ -238,15 +248,30 @@ Versao do SI-PNI para sistemas sem interface grafica
 
                 nome = HttpUtility.UrlEncode(nome);
                 var response = await Client.GetAsync($"https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao?nome={nome}&municipioNascimento={codMun}");
-                if ((int)response.StatusCode == 401)
+                if ((int)response.StatusCode == 400)
                 {
-                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
-                    await GerarTokenValido();
+                    Console.WriteLine("[-] ERRO: Dado(s) Invalido(s)!");
+                    Console.ReadLine();
                     return null;
                 }
-                var json = await response.Content.ReadAsStringAsync();
-                Root root = JsonSerializer.Deserialize<Root>(json);
 
+                var json = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
+
+                    try
+                    {
+                        var credentialTokens = await GerarTokenValido();
+                        await Menu(credentialTokens);
+                    }
+                    catch (Exception ex)
+                    {
+                        rainbow.WriteLineWithMarkup($"[-] ERRO: ao gerar novos tokens: {ex.Message}");
+                    }
+                }
+
+                Root root = JsonSerializer.Deserialize<Root>(json);
                 return root;
             }
             catch (Exception ex)
@@ -282,16 +307,32 @@ Versao do SI-PNI para sistemas sem interface grafica
                 Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
 
                 var response = await Client.GetAsync($"{APICONSULTACPF}/{cpf}");
-                if ((int)response.StatusCode == 401)
+                if ((int)response.StatusCode == 400)
                 {
-                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
-                    await GerarTokenValido();
+                    Console.WriteLine("[-] ERRO: CPF Invalido!");
+                    Console.ReadLine();
                     return null;
                 }
 
                 var json = await response.Content.ReadAsStringAsync();
-                Root root = JsonSerializer.Deserialize<Root>(json);
+                Console.WriteLine($"[DEBUG] {response.StatusCode}");
+                Console.WriteLine($"[DEBUG] {json}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    rainbow.WriteLineWithMarkup("[*] Tokens expirados, gerando tokens novos...");
 
+                    try
+                    {
+                        var credentialTokens = await GerarTokenValido();
+                        await Menu(credentialTokens);
+                    }
+                    catch (Exception ex)
+                    {
+                        rainbow.WriteLineWithMarkup($"[-] ERRO: ao gerar novos tokens: {ex.Message}");
+                    }
+                }
+
+                Root root = JsonSerializer.Deserialize<Root>(json);
                 return root;
             }
             catch (Exception ex)
