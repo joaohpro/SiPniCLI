@@ -1,20 +1,23 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using CsvHelper.Configuration.Attributes;
 
 namespace CheckerSipni.Models
 {
     public class RespostasModel
     {
-        public class TabelaMunicipios
+        public class CredentialToken
         {
-            [Index(11)]
-            public int CodMun { get; set; }
-            [Index(12)]
-            public string? NomeMunicipio { get; set; }
+            public string Credential { get; set; }
+            public string Token { get; set; }
+
+            public CredentialToken(string credential, string token)
+            {
+                Credential = credential;
+                Token = token;
+            }
         }
 
         // O token é gerado apos o login, credenciais devem ser codificadas formato (USER:PASS)
