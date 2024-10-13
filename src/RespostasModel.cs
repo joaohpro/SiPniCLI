@@ -86,6 +86,10 @@ namespace CheckerSipni.Models
             public string? ddd { get; set; }
             public string? numero { get; set; }
             public int tipo { get; set; }
+            public override string ToString()
+            {
+                return $"{ddd}-{numero}";
+            }
         }
     }
 }
